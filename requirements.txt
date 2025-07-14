@@ -1,0 +1,6 @@
+SQLAlchemy
+alembic
+PyQt5
+cryptography
+PyJWT
+pytest
