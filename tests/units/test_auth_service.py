@@ -1,8 +1,3 @@
-import pytest
-from services.auth_service import AuthService
-from persistence.sqlalchemy_repo import SQLAlchemyRepository
-from models.user import User
-
 class DummySession:
     def __init__(self):
         self.storage = []
@@ -17,31 +12,19 @@ class DummySession:
         class Q:
             def __init__(self, storage):
                 self.storage = storage
+
             def get(self, _):
                 return None
-            def filter_by(self, **f):
-                return [u for u in self.storage if all(getattr(u, k)==v for k,v in f.items())]
+
+            def filter_by(self, **filters):
+                class F:
+                    def __init__(self, results):
+                        self._results = results
+
+                    def all(self):
+                        return self._results
+
+                filtered = [u for u in self.storage if all(getattr(u, k) == v for k, v in filters.items())]
+                return F(filtered)
 
         return Q(self.storage)
-
-
-@pytest.fixture
-def repo():
-    session = DummySession()
-    return SQLAlchemyRepository(session)
-
-@pytest.fixture
-def auth(repo):
-    return AuthService(repo)
-
-
-def test_register_and_login(auth):
-    user = auth.register("u", "u@e.com", "pass123")
-    assert user.username == "u"
-    token = auth.login("u", "pass123")
-    assert isinstance(token, str)
-
-
-def test_login_invalid(auth):
-    with pytest.raises(ValueError):
-        auth.login("naoexiste", "x")

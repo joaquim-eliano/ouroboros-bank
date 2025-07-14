@@ -1,11 +1,12 @@
 import uuid
+import os
+import base64
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.backends import default_backend
-import base64
 
 Base = declarative_base()
 
@@ -34,7 +35,7 @@ class User(Base):
 
     @classmethod
     def create(cls, username: str, email: str, password: str) -> 'User':
-        salt = default_backend().osrandom_engine().urandom(16)
+        salt = os.urandom(16)
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
