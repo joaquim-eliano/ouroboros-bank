@@ -1,6 +1,17 @@
-SQLAlchemy
-alembic
-PyQt5
-cryptography
-PyJWT
-pytest
+# Interface gráfica
+PyQt5>=5.15.10
+
+# ORM e banco de dados
+SQLAlchemy>=2.0
+alembic>=1.13
+
+# Autenticação e segurança
+cryptography>=42.0
+PyJWT>=2.8
+
+# Testes
+pytest>=8.0
+pytest-qt>=4.5
+
+# (Opcional) Suporte a ambientes .env
+python-dotenv>=1.0.1
