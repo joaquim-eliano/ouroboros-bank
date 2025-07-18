@@ -1,4 +1,5 @@
 import sys
+import uuid
 from PyQt5.QtWidgets import QApplication, QDialog
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -6,48 +7,46 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
 
 from config.settings import DATABASE_URL
-# ORM declarative base and models
 from models.user import Base, User as UserModel
-from models.wallet import Wallet as WalletModel
-# Generic repository for SQLAlchemy (assume takes only session)
-from persistence.sqlalchemy_repo import SQLAlchemyRepository
-
-# Business logic
-from models.wallet import Wallet
+from models.wallet import Wallet as WalletLogic
+from models.wallet_model import Wallet as WalletModel
 from models.blockchain import Blockchain
+from persistence.sqlalchemy_repo import SQLAlchemyRepository
 from services.auth_service import AuthService
 from gui.login_dialog import LoginDialog
 from gui.main_window import MainWindow
 
 
 def main():
-    # --- 1) Database and ORM setup ---
+    # --- Setup DB ---
     engine = create_engine(DATABASE_URL)
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # --- 2) Repositories: instantiated with session only ---
+    # --- Repos ---
     user_repo = SQLAlchemyRepository(session)
     wallet_repo = SQLAlchemyRepository(session)
 
-    # --- 3) Auth service ---
+    # --- Auth ---
     auth_service = AuthService(user_repo)
 
-    # --- 4) Qt application and login dialog ---
+    # --- Login ---
     app = QApplication(sys.argv)
     login_dialog = LoginDialog(auth_service)
     if login_dialog.exec() != QDialog.Accepted:
         sys.exit(0)
 
-    # Extract token and user_id
     token = login_dialog.jwt_token
-    user_id = login_dialog.user_id
+    user_id_str = login_dialog.user_id  # string uuid
+    user_id = uuid.UUID(user_id_str)   # converte para UUID
 
-    # --- 5) Load or create wallet record ---
-    wallet_record = wallet_repo.get_by_filter(user_id=user_id)
-    if not wallet_record:
-        logic_wallet = Wallet(user_id)
+    user = user_repo.get_by_id(UserModel, user_id)
+
+    # --- Wallet ---
+    wallet_record = wallet_repo.get_by_filter(WalletModel, user_id=user_id)
+    if wallet_record is None:
+        logic_wallet = WalletLogic(user_id)
         pem = logic_wallet.public_key.public_bytes(
             encoding=serialization.Encoding.PEM,
             format=serialization.PublicFormat.SubjectPublicKeyInfo
@@ -58,10 +57,9 @@ def main():
             balance_fiat=0.0,
             balance_ouro=0.0
         )
-        wallet_repo.add(wallet_record)
-        wallet_repo.commit()
+        wallet_repo.save(wallet_record)
     else:
-        logic_wallet = Wallet(user_id)
+        logic_wallet = WalletLogic(user_id)
         logic_wallet.balance_fiat = wallet_record.balance_fiat
         logic_wallet.balance_ouro = wallet_record.balance_ouro
         logic_wallet.public_key = serialization.load_pem_public_key(
@@ -69,11 +67,11 @@ def main():
             backend=default_backend()
         )
 
-    # --- 6) Initialize in-memory blockchain ---
+    # --- Blockchain ---
     blockchain = Blockchain(difficulty=2)
 
-    # --- 7) Show main window ---
-    window = MainWindow(token, blockchain, logic_wallet)
+    # --- GUI ---
+    window = MainWindow(token, blockchain, logic_wallet, user)
     window.show()
     sys.exit(app.exec_())
 

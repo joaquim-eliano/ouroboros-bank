@@ -13,4 +13,13 @@ class SQLAlchemyRepository:
         return self.session.query(model).get(id_)
 
     def get_by_filter(self, model, **filters):
+        return self.session.query(model).filter_by(**filters).first()
+
+    def all_by_filter(self, model, **filters):
         return self.session.query(model).filter_by(**filters).all()
+
+    def commit(self):
+        self.session.commit()
+
+    def add(self, obj):
+        self.session.add(obj)

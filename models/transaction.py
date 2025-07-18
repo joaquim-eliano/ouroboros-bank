@@ -1,32 +1,49 @@
+import json
 from datetime import datetime
 from typing import Optional
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
 
 class Transaction:
     def __init__(
         self,
-        from_address: Optional[any],
-        to_address: any,
+        from_address: str,
+        to_address: str,
         amount: float,
-        currency: str,
+        nonce: int,
+        fee: float = 0.0,
+        data: Optional[str] = None
     ):
-        self.id = None
         self.from_address = from_address
         self.to_address = to_address
         self.amount = amount
-        self.currency = currency  # 'ORO' or 'FIAT'
+        self.nonce = nonce
+        self.fee = fee
+        self.data = data
+        self.timestamp = datetime.utcnow().isoformat()
         self.signature: Optional[bytes] = None
-        self.timestamp = datetime.utcnow()
-        self.status = 'PENDING'
 
-    def calculate_hash(self) -> bytes:
-        return f"{self.from_address}{self.to_address}{self.amount}{self.currency}{self.timestamp}".encode()
+    def serialize(self) -> bytes:
+        obj = {
+            "from": self.from_address,
+            "to": self.to_address,
+            "amount": self.amount,
+            "nonce": self.nonce,
+            "fee": self.fee,
+            "data": self.data,
+            "timestamp": self.timestamp
+        }
+        return json.dumps(obj, sort_keys=True).encode()
+
+    def compute_hash(self) -> str:
+        import hashlib
+        return hashlib.sha256(self.serialize()).hexdigest()
 
     def sign(self, private_key) -> None:
-        """Sign this transaction."""
+        """Sign the serialized tx."""
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
+        data = self.serialize()
         self.signature = private_key.sign(
-            self.calculate_hash(),
+            data,
             padding.PSS(
                 mgf=padding.MGF1(hashes.SHA256()),
                 salt_length=padding.PSS.MAX_LENGTH
@@ -34,18 +51,14 @@ class Transaction:
             hashes.SHA256()
         )
 
-    @staticmethod
-    def verify_signature(data: bytes, signature: bytes, public_key) -> bool:
-        try:
-            public_key.verify(
-                signature,
-                data,
-                padding.PSS(
-                    mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
-                ),
-                hashes.SHA256()
-            )
-            return True
-        except Exception:
-            return False
+    def to_dict(self) -> dict:
+        return {
+            "from": self.from_address,
+            "to": self.to_address,
+            "amount": self.amount,
+            "nonce": self.nonce,
+            "fee": self.fee,
+            "data": self.data,
+            "timestamp": self.timestamp,
+            "signature": self.signature.hex() if self.signature else None
+        }

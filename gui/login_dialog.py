@@ -11,6 +11,7 @@ class LoginDialog(QDialog):
         self.setWindowTitle("Login / Registro")
         self.mode = 'login'  # ou 'register'
         self.jwt_token = None
+        self.user_id = None  # <-- Adicionado aqui
 
         # Layouts
         self.form_layout = QFormLayout()
@@ -85,6 +86,11 @@ class LoginDialog(QDialog):
         try:
             token = self.auth_service.login(username, password)
             self.jwt_token = token
+
+            # 🔐 Decodifica o token e extrai o ID do usuário
+            payload = self.auth_service.verify_token(token)
+            self.user_id = payload.get("sub")  # <- Define o user_id
+
             QMessageBox.information(self, "Sucesso", "Login realizado com sucesso.")
             self.accept()
         except Exception as e:
